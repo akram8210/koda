@@ -469,23 +469,28 @@ const CommandLab: React.FC<Props> = ({ block, readOnly = false, lang = 'sv' }) =
     setPreviewCode(null);
   };
 
-  const getContentCoordinates = (e: React.MouseEvent) => {
+  const getContentCoordinates = (e: React.PointerEvent) => {
     const rect = canvasRef.current?.getBoundingClientRect();
     if (!rect) return { x: 0, y: 0 };
     const scale = TOTAL_LOGICAL_SIZE / rect.width;
     return { x: ((e.clientX - rect.left) * scale) - MARGIN, y: ((e.clientY - rect.top) * scale) - MARGIN };
   };
 
-  const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
+  const handlePointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
     if (readOnly) return;
+    e.currentTarget.setPointerCapture(e.pointerId);
     const { x, y } = getContentCoordinates(e);
     const values: Record<string, any> = {};
     def.params.forEach((p, i) => values[p.name] = parsedParams[i] ?? p.defaultValue);
     const hitId = def.hitTest(x, y, values);
-    if (hitId) { setDragId(hitId); setDragStart({ x, y }); setParamSnapshot([...parsedParams]); }
+    if (hitId) { 
+        setDragId(hitId); 
+        setDragStart({ x, y }); 
+        setParamSnapshot([...parsedParams]); 
+    }
   };
 
-  const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
+  const handlePointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
     const { x, y } = getContentCoordinates(e);
     if (!dragId || !dragStart) {
       if (def && canvasRef.current) {
@@ -510,6 +515,13 @@ const CommandLab: React.FC<Props> = ({ block, readOnly = false, lang = 'sv' }) =
       if (dragId.includes('th')) updateP('th', -dy);
     }
     setCode(updateCodeParams(code, def.functionName, currentParams));
+  };
+
+  const handlePointerUp = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    }
+    setDragId(null);
   };
 
   const handleParamChange = (index: number, value: string | number) => {
@@ -615,7 +627,21 @@ const CommandLab: React.FC<Props> = ({ block, readOnly = false, lang = 'sv' }) =
         </div>
         <div className="flex justify-center lg:justify-start items-start w-full h-full overflow-visible p-1">
           <div className="relative flex-shrink-0 rounded-xl shadow-2xl border border-slate-200 bg-white">
-            <canvas ref={canvasRef} style={{ width: `${TOTAL_LOGICAL_SIZE}px`, height: `${TOTAL_LOGICAL_SIZE}px` }} className="block touch-none bg-white rounded-xl" onMouseDown={handleMouseDown} onMouseMove={handleMouseMove} onMouseUp={() => setDragId(null)} onMouseLeave={() => setDragId(null)} />
+            <canvas 
+              ref={canvasRef} 
+              style={{ 
+                width: `${TOTAL_LOGICAL_SIZE}px`, 
+                height: `${TOTAL_LOGICAL_SIZE}px`,
+                touchAction: 'none',
+                userSelect: 'none',
+                WebkitUserSelect: 'none'
+              }} 
+              className="block bg-white rounded-xl" 
+              onPointerDown={handlePointerDown} 
+              onPointerMove={handlePointerMove} 
+              onPointerUp={handlePointerUp} 
+              onPointerCancel={handlePointerUp} 
+            />
             <div className="absolute top-4 right-4 flex gap-2 pointer-events-none">
               <div className="bg-slate-900/5 backdrop-blur text-slate-500 text-[10px] font-bold px-3 py-1.5 rounded-full border border-white/20">600 x 600 {t.canvasLabel}</div>
             </div>
